@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>打开中国——5A环球之旅 | 大众经典 + 小众秘境（路线美化版）</title>
+    <!-- Leaflet -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- 字体图标 -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Inter', sans-serif; overflow: hidden; height: 100vh; width: 100vw; background: #1a2a32; }
+        #map { height: 100vh; width: 100%; z-index: 1; }
+        .story-panel {
+            position: absolute; top: 20px; right: 20px; width: 340px; max-height: calc(100% - 40px);
+            background: rgba(20, 25, 30, 0.85); backdrop-filter: blur(12px); border-radius: 28px;
+            box-shadow: 0 12px 32px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.15);
+            color: #f0f3f5; padding: 0; overflow-y: auto; z-index: 10; border: 1px solid rgba(255,255,240,0.2);
+        }
+        .story-header { padding: 20px 20px 12px; border-bottom: 1px solid rgba(255,255,210,0.2); }
+        .story-header h1 { font-size: 1.6rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+        .story-header h1 i { color: #ffb347; }
+        .story-header p { font-size: 0.75rem; opacity: 0.8; margin-top: 6px; }
+        .journey-progress { padding: 12px 20px; background: rgba(0,0,0,0.3); font-size: 0.8rem; font-weight: 500; display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); }
+        .content-box { padding: 20px; }
+        .story-text { margin-bottom: 20px; }
+        .story-text h2 { font-size: 1.5rem; font-weight: 600; margin-bottom: 8px; color: #ffd966; display: flex; align-items: center; gap: 10px; }
+        .story-text .meta { font-size: 0.75rem; background: rgba(0,0,0,0.5); display: inline-block; padding: 4px 12px; border-radius: 30px; margin-bottom: 12px; }
+        .story-text p { font-size: 0.9rem; line-height: 1.45; margin-bottom: 12px; }
+        .data-badge { display: flex; gap: 12px; flex-wrap: wrap; margin: 16px 0; }
+        .badge { background: rgba(0,0,0,0.5); padding: 6px 12px; border-radius: 40px; font-size: 0.7rem; }
+        .badge i { margin-right: 6px; color: #ffb347; }
+        .mini-chart { background: rgba(0,0,0,0.4); border-radius: 20px; margin: 12px 0; padding: 8px; }
+        .image-gallery {
+            display: flex; gap: 8px; overflow-x: auto; margin: 15px 0 10px; padding-bottom: 8px;
+            scrollbar-width: thin;
+        }
+        .image-gallery img {
+            width: 100px; height: 80px; object-fit: cover; border-radius: 12px;
+            border: 1px solid rgba(255,180,70,0.5); transition: 0.2s; cursor: pointer;
+        }
+        .image-gallery img:hover { transform: scale(1.02); border-color: #ffb347; }
+        .action-buttons { display: flex; gap: 12px; margin-top: 20px; margin-bottom: 10px; }
+        .btn { flex:1; background: rgba(255,255,240,0.15); border: none; padding: 10px 0; border-radius: 40px; font-weight: 600; font-size:0.85rem; color:white; cursor:pointer; backdrop-filter: blur(4px); }
+        .btn-primary { background: #ffb347; color:#1e2a2f; }
+        .btn-primary:hover { background: #ff9f1a; transform:scale(0.97); }
+        .btn-outline:hover { background: rgba(255,255,240,0.3); }
+        .footer-note { font-size:0.65rem; text-align:center; padding:12px; border-top:1px solid rgba(255,255,200,0.15); color:#ccc; }
+        .leaflet-control-layers { border-radius:12px; background:rgba(20,25,30,0.85); backdrop-filter:blur(8px); color:white; }
+        .story-panel::-webkit-scrollbar { width:5px; }
+        .story-panel::-webkit-scrollbar-track { background:rgba(0,0,0,0.3); border-radius:10px; }
+        .story-panel::-webkit-scrollbar-thumb { background:#ffb347; border-radius:10px; }
+        .mini-menu-buttons { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 20px; justify-content: center; }
+        .mini-menu-buttons .btn { background: #2c3e44; color: #ffd966; border: 1px solid #ffb347; }
+        @media (max-width:600px) { .story-panel { width:290px; } .image-gallery img { width:75px; height:65px; } }
+    </style>
+</head>
+<body>
+<div id="map"></div>
+<div class="story-panel" id="storyPanel">
+    <div class="story-header">
+        <h1><i class="fas fa-globe-asia"></i> 打开中国 · 5A环球之旅</h1>
+        <p>从世界遗产到秘境小镇 | 地图漫游华夏奇境</p>
+    </div>
+    <div class="journey-progress" id="progressIndicator">
+        <span><i class="fas fa-route"></i> 旅程进度</span>
+        <span id="stepCounter">第1站 / 共12站</span>
+    </div>
+    <div class="content-box" id="storyContent"></div>
+    <div class="footer-note">
+        <i class="fas fa-map-marked-alt"></i> 点击地图标记 | 切换底图 | 漫游中国
+    </div>
+</div>
+
+<script>
+    // ----------------------------- 全部景点（6大众 + 5小众 + 1菜单）--------------------------------
+    const stations = [
+        // 0-5 原六大经典（本地图片路径已保留）
+        { id:0, name:"故宫博物院", location:"北京 · 东城区", coord:[39.917,116.397], zoom:13, timeContext:"2025 · 暮春清晨", eventTitle:"🏯 开端 · 皇都气象", story:"晨光洒落金水桥，5A环球之旅自紫禁城启程。作为世界最大宫殿建筑群，故宫以九千余间屋宇书写六百年皇家史诗。", multimedia:{ icon:"fa-landmark", visitorData:"年接待游客量: 1700万+", fact:"建筑面积约15万㎡ | 藏品186万余件" }, imageIcon:"🏯", images:["images/gugong1.jpeg","images/gugong2.jpeg","images/gugong3.jpeg"] },
+        { id:1, name:"秦始皇兵马俑", location:"陕西 · 西安", coord:[34.385,109.273], zoom:14, timeContext:"2025 · 初夏正午", eventTitle:"⚔️ 发展 · 地下军阵", story:"八百里秦川之下，陶俑阵列重现大秦雄风。数以千计的陶俑面容各异，诉说帝国统一与不朽工艺。", multimedia:{ icon:"fa-helmet-battle", visitorData:"年参观量: 超900万人次", fact:"已出土陶俑超8000件 | 世界遗产" }, imageIcon:"⚔️", images:["images/xian1.jpg","images/xian2.jpeg","images/xian3.jpeg"] },
+        { id:2, name:"九寨沟", location:"四川 · 阿坝", coord:[33.263,104.243], zoom:12, timeContext:"2025 · 初夏雨后", eventTitle:"💧 发展 · 瑶池碧水", story:"翠海叠瀑与彩林雪峰交织成童话世界。五花海、诺日朗瀑布构成自然奇迹，震后修复更显珍贵。", multimedia:{ icon:"fa-water", visitorData:"年均游客量: 500万+", fact:"108个高山湖泊 | 钙华彩池" }, imageIcon:"💧", images:["images/jiuzhaigou1.jpeg","images/jiuzhaigou2.jpeg","images/jiuzhaigou3.jpeg","images/jiuzhaigou4.jpg"] },
+        { id:3, name:"丽江古城", location:"云南 · 丽江", coord:[26.872,100.233], zoom:13, timeContext:"2025 · 盛夏黄昏", eventTitle:"🏮 发展 · 纳西遗韵", story:"玉龙雪山脚下，古城小桥流水、青石巷陌，东巴文化鲜活传承，茶马古道上的多元共生。", multimedia:{ icon:"fa-bridge", visitorData:"年游客量: 超4500万人次", fact:"世界文化遗产 | 800年历史" }, imageIcon:"🏮", images:["images/lijiang1.jpeg","images/lijiang2.jpeg","images/lijiang3.jpeg"] },
+        { id:4, name:"布达拉宫", location:"西藏 · 拉萨", coord:[29.654,91.118], zoom:13, timeContext:"2025 · 盛夏清晨", eventTitle:"⛰️ 高潮 · 世界屋脊的明珠", story:"海拔3700米的圣城，红白宫殿依山垒砌，俯瞰苍茫雪域。信仰与毅力的象征，旅程的顶点。", multimedia:{ icon:"fa-mountain", visitorData:"每日限流 5000人", fact:"海拔3750m | 世界文化遗产" }, imageIcon:"⛰️", images:["images/xizang1.jpeg","images/xizang2.jpeg","images/xizang3.jpeg"] },
+        { id:5, name:"上海外滩", location:"上海 · 黄浦江畔", coord:[31.235,121.488], zoom:14, timeContext:"2025 · 璀璨夏夜", eventTitle:"🌃 结局 · 未来之窗", story:"浦江两岸万国建筑与陆家嘴摩天楼群交相辉映，百年变迁见证中国开放与腾飞。", multimedia:{ icon:"fa-city", visitorData:"年客流: 超5000万人次", fact:"全长1.5km | 近代与现代交融" }, imageIcon:"🌃", images:["images/waitan1.jpg","images/waitan2.jpg","images/waitan3.jpg"] },
+
+        // 6 过渡菜单（无坐标）
+        { id:6, name:"秘境推荐", location:"小众彩蛋", coord:null, zoom:null, timeContext:"", eventTitle:"🌟 解锁 · 隐藏路线", story:"", multimedia:{ icon:"fa-star", visitorData:"", fact:"" }, imageIcon:"🌟", images:[], isMenu:true },
+
+        // 7-11 五个小众景点（本地图片路径已保留，语法修正）
+        { id:7, name:"榆林", location:"陕西 · 榆林", coord:[38.285,109.734], zoom:12, timeContext:"2025 · 秋高气爽", eventTitle:"🏜️ 小众·塞上秘境", story:"榆林，位于陕甘宁蒙交界，拥有红石峡、镇北台、统万城遗址。大漠与黄河在此相拥，长城与绿洲交织，是避开人潮的考古与自然双宝地。", multimedia:{ icon:"fa-mountain", visitorData:"年游客量: 约600万人次", fact:"红石峡摩崖石刻 | 统万城遗址" }, imageIcon:"🏜️", images:["images/yulin1.jpeg","images/yulin2.jpg","images/yulin3.jpeg"] },
+        { id:8, name:"河池", location:"广西 · 河池", coord:[24.699,108.085], zoom:11, timeContext:"2025 · 秋日", eventTitle:"🌿 小众·山水画廊", story:"河池拥有巴马长寿乡、三门海天窗群、七百弄国家地质公园。喀斯特峰林与地下河交织，被称为‘世界长寿之乡’，宁静又治愈。", multimedia:{ icon:"fa-water", visitorData:"年游客量: 约380万人次", fact:"巴马长寿村 | 三门海天窗" }, imageIcon:"🌿", images:["images/hechi1.jpeg","images/hechi2.jpeg","images/hechi3.jpeg"] },
+        { id:9, name:"乌海", location:"内蒙古 · 乌海", coord:[39.655,106.796], zoom:12, timeContext:"2025 · 夏季", eventTitle:"🏜️ 小众·沙漠看海", story:"乌海，黄河与乌兰布和沙漠相会，乌海湖宛如沙漠中的蓝宝石。可体验沙漠越野、水上飞人，以及独特的书法文化。", multimedia:{ icon:"fa-sun", visitorData:"年游客量: 约280万人次", fact:"乌海湖 | 金沙湾" }, imageIcon:"🏜️", images:["images/wuhai1.png","images/wuhai2.jpeg","images/wuhai3.jpeg"] },
+        { id:10, name:"万宁", location:"海南 · 万宁", coord:[18.796,110.398], zoom:12, timeContext:"2025 · 暖冬", eventTitle:"🏄 小众·冲浪天堂", story:"万宁被誉为‘中国冲浪之都’，石梅湾、日月湾水质清澈，浪点稳定。相比三亚更安静，是年轻人钟爱的滨海秘境。", multimedia:{ icon:"fa-umbrella-beach", visitorData:"年游客量: 约550万人次", fact:"日月湾 | 分界洲岛" }, imageIcon:"🏄", images:["images/wanning1.png","images/wanning2.jpg","images/wanning3.jpeg"] },
+        { id:11, name:"大同", location:"山西 · 大同", coord:[40.076,113.300], zoom:12, timeContext:"2025 · 秋", eventTitle:"🏯 小众·北魏古都", story:"大同拥有云冈石窟、悬空寺、华严寺。作为北魏都城，辽金古建与石窟艺术冠绝中华，游客相对少，体验感极佳。", multimedia:{ icon:"fa-landmark", visitorData:"年游客量: 约720万人次", fact:"云冈石窟 | 悬空寺" }, imageIcon:"🏯", images:["images/datong1.jpg","images/datong2.jpeg","images/datong3.jpeg"] }
+    ];
+
+    let map, markers = [], travelPath, minorPath, currentStationIndex = 0, totalStations = stations.length;
+    let baseMaps, streetLayer, satelliteLayer, roadLayer;
+    let chartInstance = null;
+
+    // 辅助函数
+    function isMenuStation(idx) { return stations[idx] && stations[idx].isMenu === true; }
+
+    // 初始化地图
+    function initMap() {
+        map = L.map('map').setView([35.0, 108.0], 5);
+        streetLayer = L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=8&x={x}&y={y}&z={z}', { attribution: '高德地图', maxZoom:18, subdomains:['01','02','03','04'] });
+        satelliteLayer = L.tileLayer('https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}', { attribution: '高德地图', maxZoom:18, subdomains:['01','02','03','04'] });
+        roadLayer = L.tileLayer('https://webrd01.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}', { attribution: '高德地图', maxZoom:18, subdomains:['01','02','03','04'] });
+        streetLayer.addTo(map);
+        baseMaps = { "🗺️ 街道图": streetLayer, "🛰️ 卫星图": satelliteLayer, "📍 路网图": roadLayer };
+        L.control.layers(baseMaps, null, { collapsed: false, position: 'topleft' }).addTo(map);
+        L.control.scale({ metric: true, position: 'bottomright' }).addTo(map);
+
+        // 创建地图标记（排除菜单站）
+        stations.forEach((st, idx) => {
+            if (st.coord && !st.isMenu) {
+                const customIcon = L.divIcon({
+                    html: `<div style="background-color: rgba(0,0,0,0.7); border-radius: 30px; padding: 4px 8px; color: #ffb347; font-weight: bold; font-size: 14px; border: 1px solid #ffb347; backdrop-filter: blur(4px);">${st.imageIcon} ${st.name.slice(0,2)}</div>`,
+                    iconSize: [50, 28], className: 'story-marker'
+                });
+                const marker = L.marker(st.coord, { icon: customIcon }).addTo(map);
+                marker.on('click', () => {
+                    currentStationIndex = idx;
+                    updateStoryToIndex(idx, true);
+                    if (st.coord) map.flyTo(st.coord, st.zoom || 12, { duration: 1.2 });
+                });
+                markers.push({ marker, idx });
+            }
+        });
+
+        // 主路径（大众主线）
+        travelPath = L.polyline([], { color: '#ffb347', weight: 4, opacity: 0.85, lineJoin: 'round' }).addTo(map);
+        // 小众虚线路径（初始化时不显示）
+        minorPath = L.polyline([], { color: '#80b3ff', weight: 3, opacity: 0.6, dashArray: '6, 6', lineJoin: 'round' }).addTo(map);
+        setTimeout(() => map.flyTo([35.0, 108.0], 5, { duration: 1.0 }), 500);
+    }
+
+    // 更新路径（主线 + 小众支线分离）
+    function updateTravelPath(currentIdx) {
+        const currentStation = stations[currentIdx];
+        if (!currentStation) return;
+
+        // 获取大众经典坐标（固定顺序）
+        const mainCoords = stations.slice(0,6).filter(s => s.coord).map(s => s.coord);
+        
+        // 判断当前是否在小众景点范围内（id >= 7）
+        const minorStations = stations.slice(7,12).filter(s => s.coord);
+        const currentMinorIndex = minorStations.findIndex(s => s.id === currentStation.id);
+        
+        if (currentMinorIndex !== -1) {
+            // 小众探索阶段：主线保持全大众连线，小众支线单独显示从第一个小众到当前小众
+            const minorCoords = minorStations.slice(0, currentMinorIndex+1).map(s => s.coord);
+            minorPath.setLatLngs(minorCoords);
+            // 主线始终保持完整的6大众连线（不变）
+            travelPath.setLatLngs(mainCoords);
+        } else {
+            // 大众景点阶段：清空小众支线，主线根据进度显示（从0到当前站）
+            minorPath.setLatLngs([]);
+            if (!isMenuStation(currentIdx) && currentStation.coord) {
+                const toCurrent = [];
+                for (let i = 0; i <= currentIdx; i++) {
+                    if (stations[i].coord && !stations[i].isMenu) toCurrent.push(stations[i].coord);
+                }
+                travelPath.setLatLngs(toCurrent);
+            } else {
+                travelPath.setLatLngs(mainCoords.slice(0, currentIdx+1));
+            }
+        }
+    }
+
+    function renderGallery(images) {
+        if (!images || images.length === 0) return '';
+        return `<div class="image-gallery">${images.map(url => `<img src="${url}" alt="景观" onclick="window.open('${url}','_blank')">`).join('')}</div>`;
+    }
+
+    function drawComparisonChart(currentIdx) {
+        const container = document.getElementById('miniChartContainer');
+        if (!container) return;
+        container.innerHTML = '<canvas id="attractionChart" width="280" height="110" style="max-height:110px; width:100%"></canvas>';
+        const ctx = document.getElementById('attractionChart')?.getContext('2d');
+        if (!ctx) return;
+        if (chartInstance) chartInstance.destroy();
+        const visibleStations = stations.filter(s => !s.isMenu && s.coord);
+        const labels = visibleStations.map(s => s.name.slice(0,4));
+        const visitorData = visibleStations.map(s => {
+            if(s.name==="榆林") return 600;
+            if(s.name==="河池") return 380;
+            if(s.name==="乌海") return 280;
+            if(s.name==="万宁") return 550;
+            if(s.name==="大同") return 720;
+            return [1700,900,520,1500,180,2100][visibleStations.findIndex(t=>t.id===s.id)] || 500;
+        });
+        const bgColors = labels.map((_, idx) => (stations[currentIdx] && stations[currentIdx].name === visibleStations[idx]?.name) ? '#ffb347' : '#4e6b7a');
+        chartInstance = new Chart(ctx, {
+            type: 'bar',
+            data: { labels, datasets: [{ label: '年游客量（万人次）', data: visitorData, backgroundColor: bgColors, borderRadius: 8, barPercentage: 0.7 }] },
+            options: { responsive: true, maintainAspectRatio: true, plugins: { legend: { labels: { color: '#f0f0f0', font: { size: 9 } }, position: 'top' } },
+            scales: { y: { grid: { color: 'rgba(255,255,200,0.2)' }, ticks: { color: '#ddd', stepSize: 500 } }, x: { ticks: { color: '#eee' } } } }
+        });
+    }
+
+    // 菜单站渲染
+    function renderMenuStation(index) {
+        const miniBtns = stations.slice(7,12).map((st, i) => `<button class="btn" data-mini-idx="${7+i}" style="background:#2c3e44; margin:6px;">🌟 ${st.name}</button>`).join('');
+        const html = `
+            <div class="story-text" style="text-align:center">
+                <h2>🌟 解锁 · 小众秘境 🌟</h2>
+                <div class="meta"><i class="fas fa-map-pin"></i> 避开人潮，发现不一样的中国</div>
+                <p style="font-size:1rem; margin:15px 0;">如果你觉得上述景点已游览过或者嫌人太多耽误游玩体验，接下来这五个小众景点绝对值得一试！</p>
+                <div class="mini-menu-buttons" id="miniMenuButtons">${miniBtns}</div>
+                <div class="action-buttons" style="margin-top:20px;">
+                    <button class="btn btn-outline" id="resetBtn"><i class="fas fa-undo-alt"></i> 重启旅程</button>
+                    <button class="btn btn-primary" id="continueMiniBtn"><i class="fas fa-arrow-right"></i> 开始探索小众</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('storyContent').innerHTML = html;
+        document.getElementById('stepCounter').innerHTML = `🍃 番外篇 · 秘境选择`;
+        document.getElementById('resetBtn')?.addEventListener('click', () => resetJourney());
+        document.getElementById('continueMiniBtn')?.addEventListener('click', () => {
+            if (index+1 < totalStations) {
+                currentStationIndex = index+1;
+                updateStoryToIndex(currentStationIndex, true);
+            }
+        });
+        document.querySelectorAll('[data-mini-idx]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const targetIdx = parseInt(btn.getAttribute('data-mini-idx'));
+                if (!isNaN(targetIdx) && targetIdx < totalStations) {
+                    currentStationIndex = targetIdx;
+                    updateStoryToIndex(currentStationIndex, true);
+                }
+            });
+        });
+        const progFill = document.getElementById('progFill');
+        if(progFill) progFill.style.width = `${((index+1)/totalStations)*100}%`;
+    }
+
+    // 核心更新函数
+    function updateStoryToIndex(index, isAutoMove = true) {
+        if (index >= totalStations) { completeJourney(); return; }
+        const station = stations[index];
+        if (station.isMenu) {
+            renderMenuStation(index);
+            const percent = ((index+1)/totalStations)*100;
+            let progFill = document.getElementById('progFill');
+            if (!progFill) {
+                const progElem = document.getElementById('progressIndicator');
+                const progBar = document.createElement('div');
+                progBar.style.marginTop = '6px'; progBar.style.height = '4px'; progBar.style.background = 'rgba(255,255,255,0.2)'; progBar.style.borderRadius = '4px';
+                progBar.innerHTML = '<div id="progFill" style="width: 0%; height: 100%; background: #ffb347; border-radius: 4px;"></div>';
+                progElem.appendChild(progBar);
+                progFill = document.getElementById('progFill');
+            }
+            if(progFill) progFill.style.width = `${percent}%`;
+            return;
+        }
+
+        const galleryHtml = renderGallery(station.images);
+        const contentHtml = `
+            <div class="story-text">
+                <h2>${station.eventTitle} <span>${station.imageIcon}</span></h2>
+                <div class="meta"><i class="fas fa-map-pin"></i> ${station.location} &nbsp;|&nbsp; <i class="far fa-calendar-alt"></i> ${station.timeContext}</div>
+                <p>${station.story}</p>
+                <div class="data-badge">
+                    <span class="badge"><i class="fas ${station.multimedia.icon}"></i> ${station.multimedia.visitorData}</span>
+                    <span class="badge"><i class="fas fa-info-circle"></i> ${station.multimedia.fact}</span>
+                </div>
+                ${galleryHtml}
+                <div class="mini-chart" id="miniChartContainer"></div>
+            </div>
+            <div class="action-buttons">
+                ${index > 0 ? '<button class="btn btn-outline" id="prevBtn"><i class="fas fa-arrow-left"></i> 上一站</button>' : ''}
+                <button class="btn btn-primary" id="nextBtn">${index === totalStations-1 ? '<i class="fas fa-flag-checkered"></i> 完成旅程' : '<i class="fas fa-location-dot"></i> 下一站'}</button>
+                ${!station.isMenu && index < totalStations-1 ? '<button class="btn btn-outline" id="resetBtn"><i class="fas fa-undo-alt"></i> 重启</button>' : ''}
+            </div>
+        `;
+        document.getElementById('storyContent').innerHTML = contentHtml;
+        document.getElementById('stepCounter').innerHTML = `第${index+1}站 / 共${totalStations}站`;
+
+        const percent = ((index+1)/totalStations)*100;
+        let progFill = document.getElementById('progFill');
+        if (!progFill) {
+            const progElem = document.getElementById('progressIndicator');
+            const progBar = document.createElement('div');
+            progBar.style.marginTop = '6px'; progBar.style.height = '4px'; progBar.style.background = 'rgba(255,255,255,0.2)'; progBar.style.borderRadius = '4px';
+            progBar.innerHTML = '<div id="progFill" style="width: 0%; height: 100%; background: #ffb347; border-radius: 4px;"></div>';
+            progElem.appendChild(progBar);
+            progFill = document.getElementById('progFill');
+        }
+        if(progFill) progFill.style.width = `${percent}%`;
+
+        // 更新标记高亮
+        markers.forEach(({marker, idx: mIdx}) => {
+            const sd = stations[mIdx];
+            if (!sd) return;
+            const isCurrent = (mIdx === index);
+            const newIcon = L.divIcon({
+                html: `<div style="background-color: ${isCurrent ? '#ffb347' : 'rgba(0,0,0,0.6)'}; border-radius: 30px; padding: 4px 8px; color: ${isCurrent ? '#1e2a2f' : '#ffb347'}; font-weight: bold; font-size: 14px; border: 1px solid #ffb347; backdrop-filter: blur(4px);">${sd.imageIcon} ${sd.name.slice(0,2)}</div>`,
+                iconSize: [50, 28], className: 'story-marker'
+            });
+            marker.setIcon(newIcon);
+        });
+
+        updateTravelPath(index);
+        if (isAutoMove && station.coord) {
+            map.flyTo(station.coord, station.zoom || 12, { duration: 1.6 });
+        }
+        drawComparisonChart(index);
+        
+        document.getElementById('nextBtn')?.addEventListener('click', () => {
+            if (index === totalStations-1) completeJourney();
+            else { currentStationIndex = index+1; updateStoryToIndex(currentStationIndex, true); }
+        });
+        document.getElementById('prevBtn')?.addEventListener('click', () => { if(index>0){ currentStationIndex = index-1; updateStoryToIndex(currentStationIndex, true); } });
+        document.getElementById('resetBtn')?.addEventListener('click', () => resetJourney());
+    }
+
+    // 完成旅程：只保留大众主线，清除小众虚线
+    function completeJourney() {
+        const finalHtml = `<div class="story-text" style="text-align:center"><h2>🎉 壮游中国 · 圆满收官 🎉</h2><div class="meta"><i class="fas fa-globe"></i> 从帝都皇城到大漠边关，从雪域高原到碧海蓝天</div><p>感谢您以地图为笔，书写属于自己的华夏记忆。大众经典+小众秘境，每一个地点都藏着独特的风景与故事。</p><div class="data-badge" style="justify-content:center"><span class="badge"><i class="fas fa-map-marked-alt"></i> 11处绝美目的地</span><span class="badge"><i class="fas fa-chart-line"></i> 文化与自然交融</span></div><button class="btn btn-primary" id="restartFinalBtn" style="margin-top:20px;"><i class="fas fa-sync-alt"></i> 重新开启旅程</button></div>`;
+        document.getElementById('storyContent').innerHTML = finalHtml;
+        document.getElementById('stepCounter').innerHTML = `🏁 终点 · 回味中国`;
+        if(document.getElementById('progFill')) document.getElementById('progFill').style.width = '100%';
+        map.flyTo([35.0, 108.0], 5, { duration: 1.5 });
+        document.getElementById('restartFinalBtn')?.addEventListener('click', () => resetJourney());
+        
+        // 最终只保留完整大众主线，小众虚线清空
+        const mainCoords = stations.slice(0,6).filter(s => s.coord).map(s => s.coord);
+        travelPath.setLatLngs(mainCoords);
+        if (minorPath) minorPath.setLatLngs([]);
+        currentStationIndex = totalStations;
+    }
+
+    // 重置旅程
+    function resetJourney() {
+        currentStationIndex = 0;
+        // 清空所有路径
+        travelPath.setLatLngs([]);
+        if (minorPath) minorPath.setLatLngs([]);
+        updateStoryToIndex(0, true);
+        map.flyTo([35.0, 108.0], 5, { duration: 1.2 });
+        // 重置所有标记样式为默认
+        markers.forEach(({marker, idx}) => {
+            const sd = stations[idx];
+            if(!sd) return;
+            const newIcon = L.divIcon({
+                html: `<div style="background-color: rgba(0,0,0,0.6); border-radius: 30px; padding: 4px 8px; color: #ffb347; font-weight: bold; font-size: 14px; border: 1px solid #ffb347;">${sd.imageIcon} ${sd.name.slice(0,2)}</div>`,
+                iconSize: [50, 28]
+            });
+            marker.setIcon(newIcon);
+        });
+        document.getElementById('stepCounter').innerHTML = `第1站 / 共${totalStations}站`;
+        if(document.getElementById('progFill')) document.getElementById('progFill').style.width = `${(1/totalStations)*100}%`;
+    }
+
+    window.addEventListener('load', () => {
+        initMap();
+        setTimeout(() => { updateStoryToIndex(0, true); }, 500);
+    });
+</script>
+</body>
+</html>
